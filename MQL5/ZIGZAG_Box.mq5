@@ -135,7 +135,13 @@ int OnCalculate(const int rates_total,
       //--- Check for high pivot
       if(lastDirection <= 0 && high[i] >= highValue)
         {
-         if(lastLow == 0 || (lastLow > 0 && (high[i] - lastLow) / lastLow > deviationThreshold))
+         bool checkDeviation = false;
+         if(lastLow == 0)
+            checkDeviation = true;
+         else if(lastLow > 0 && (high[i] - lastLow) / lastLow > deviationThreshold)
+            checkDeviation = true;
+         
+         if(checkDeviation)
            {
             if(lastLow > 0 && (rates_total - 1 - i) - lastLowBar >= InpBackstep)
               {
@@ -162,7 +168,13 @@ int OnCalculate(const int rates_total,
       //--- Check for low pivot
       if(lastDirection >= 0 && low[i] <= lowValue)
         {
-         if(lastHigh == 0 || (lastHigh > 0 && (lastHigh - low[i]) / lastHigh > deviationThreshold))
+         bool checkDeviation = false;
+         if(lastHigh == 0)
+            checkDeviation = true;
+         else if(lastHigh > 0 && (lastHigh - low[i]) / lastHigh > deviationThreshold)
+            checkDeviation = true;
+         
+         if(checkDeviation)
            {
             if(lastHigh > 0 && (rates_total - 1 - i) - lastHighBar >= InpBackstep)
               {
@@ -256,9 +268,15 @@ void DrawBox(int bar1, double price1, int bar2, double price2, const datetime &t
       ObjectSetInteger(0, objName, OBJPROP_FILL, true);
       
       //--- Set background color with transparency
-      color bgColor = InpBoxColor;
-      long transparency = (long)(InpBoxTransparency * 255 / 100);
-      ObjectSetInteger(0, objName, OBJPROP_BGCOLOR, (long)bgColor);
+      //--- Extract RGB components
+      int r = (int)((InpBoxColor >> 0) & 0xFF);
+      int g = (int)((InpBoxColor >> 8) & 0xFF);
+      int b = (int)((InpBoxColor >> 16) & 0xFF);
+      //--- Calculate alpha from transparency (0=opaque, 255=transparent)
+      int alpha = (int)((100 - InpBoxTransparency) * 255 / 100);
+      //--- Combine into ARGB color
+      long colorWithAlpha = (alpha << 24) | (b << 16) | (g << 8) | r;
+      ObjectSetInteger(0, objName, OBJPROP_BGCOLOR, colorWithAlpha);
       
       //--- Set selection properties
       ObjectSetInteger(0, objName, OBJPROP_SELECTABLE, false);

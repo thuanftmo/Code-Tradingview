@@ -25,12 +25,6 @@ var int direction = 0
 var line lastLine = na
 var box lastBox = na
 
-// Arrays to store zigzag points
-var array<float> zigzagHighs = array.new<float>()
-var array<int> zigzagHighBars = array.new<int>()
-var array<float> zigzagLows = array.new<float>()
-var array<int> zigzagLowBars = array.new<int>()
-
 // Calculate highest and lowest values
 highValue = ta.highest(high, zigzagDepth)
 lowValue = ta.lowest(low, zigzagDepth)
@@ -61,10 +55,6 @@ if direction <= 0 and high >= highValue
             lastHigh := high
             lastHighBar := bar_index
             direction := 1
-            
-            // Store pivot point
-            array.push(zigzagHighs, high)
-            array.push(zigzagHighBars, bar_index)
 
 if direction >= 0 and low <= lowValue
     if na(lastHigh) or (not na(lastHigh) and (lastHigh - low) / lastHigh > deviationThreshold)
@@ -88,25 +78,15 @@ if direction >= 0 and low <= lowValue
             lastLow := low
             lastLowBar := bar_index
             direction := -1
-            
-            // Store pivot point
-            array.push(zigzagLows, low)
-            array.push(zigzagLowBars, bar_index)
 
 // Update last high/low if current is more extreme
 if direction > 0 and high > lastHigh
     lastHigh := high
     lastHighBar := bar_index
-    if array.size(zigzagHighs) > 0
-        array.set(zigzagHighs, array.size(zigzagHighs) - 1, high)
-        array.set(zigzagHighBars, array.size(zigzagHighBars) - 1, bar_index)
 
 if direction < 0 and low < lastLow
     lastLow := low
     lastLowBar := bar_index
-    if array.size(zigzagLows) > 0
-        array.set(zigzagLows, array.size(zigzagLows) - 1, low)
-        array.set(zigzagLowBars, array.size(zigzagLowBars) - 1, bar_index)
 
 // Plot zigzag points
 plotshape(direction == 1 and direction[1] != 1, "High Pivot", shape.triangledown, 
