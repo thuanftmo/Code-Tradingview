@@ -49,7 +49,7 @@ if direction <= 0 and high >= highValue
                      color=zigzagLineColor, width=zigzagLineWidth)
                 
                 // Draw box if enabled
-                if showBoxes and array.size(zigzagLowBars) > 0
+                if showBoxes
                     boxLeft = lastHighBar
                     boxRight = lastLowBar
                     boxTop = lastHigh
@@ -76,7 +76,7 @@ if direction >= 0 and low <= lowValue
                      color=zigzagLineColor, width=zigzagLineWidth)
                 
                 // Draw box if enabled
-                if showBoxes and array.size(zigzagHighBars) > 0
+                if showBoxes
                     boxLeft = lastLowBar
                     boxRight = lastHighBar
                     boxTop = lastHigh

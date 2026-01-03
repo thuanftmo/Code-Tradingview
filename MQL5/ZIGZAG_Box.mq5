@@ -135,7 +135,7 @@ int OnCalculate(const int rates_total,
       //--- Check for high pivot
       if(lastDirection <= 0 && high[i] >= highValue)
         {
-         if(lastLow == 0 || (high[i] - lastLow) / lastLow > deviationThreshold)
+         if(lastLow == 0 || (lastLow > 0 && (high[i] - lastLow) / lastLow > deviationThreshold))
            {
             if(lastLow > 0 && (rates_total - 1 - i) - lastLowBar >= InpBackstep)
               {
@@ -162,7 +162,7 @@ int OnCalculate(const int rates_total,
       //--- Check for low pivot
       if(lastDirection >= 0 && low[i] <= lowValue)
         {
-         if(lastHigh == 0 || (lastHigh - low[i]) / lastHigh > deviationThreshold)
+         if(lastHigh == 0 || (lastHigh > 0 && (lastHigh - low[i]) / lastHigh > deviationThreshold))
            {
             if(lastHigh > 0 && (rates_total - 1 - i) - lastHighBar >= InpBackstep)
               {
