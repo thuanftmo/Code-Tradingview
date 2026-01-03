@@ -24,13 +24,16 @@
 #property indicator_width2  2
 
 //--- Input parameters
-input int      InpDepth      = 12;        // ZigZag Depth
-input int      InpDeviation  = 5;         // ZigZag Deviation (%)
-input int      InpBackstep   = 3;         // ZigZag Backstep
-input bool     InpShowBoxes  = true;      // Show Boxes
-input color    InpBoxColor   = clrBlue;   // Box Color
-input color    InpBoxBorder  = clrBlue;   // Box Border Color
-input int      InpBoxTransparency = 80;   // Box Transparency (0-100)
+input int      InpDepth      = 12;              // ZigZag Depth
+input int      InpDeviation  = 5;               // ZigZag Deviation (%)
+input int      InpBackstep   = 3;               // ZigZag Backstep
+input bool     InpShowBoxes  = true;            // Show Boxes
+input color    InpBoxColor   = clrBlue;         // Box Color
+input color    InpBoxBorder  = clrBlue;         // Box Border Color
+input int      InpBoxTransparency = 80;         // Box Transparency (0-100)
+
+//--- Constants
+#define EPSILON 0.0000001  // Minimum value to avoid division issues
 
 //--- Indicator buffers
 double ZigZagHighBuffer[];
@@ -50,6 +53,13 @@ int    boxCounter = 0;
 //+------------------------------------------------------------------+
 int OnInit()
   {
+//--- Validate input parameters
+   if(InpBoxTransparency < 0 || InpBoxTransparency > 100)
+     {
+      Print("Error: Box Transparency must be between 0 and 100. Using default value 80.");
+      // Note: Can't modify input parameters, but warn user
+     }
+   
 //--- Indicator buffers mapping
    SetIndexBuffer(0, ZigZagHighBuffer, INDICATOR_DATA);
    SetIndexBuffer(1, ZigZagLowBuffer, INDICATOR_DATA);
@@ -138,7 +148,7 @@ int OnCalculate(const int rates_total,
          bool checkDeviation = false;
          if(lastLow == 0)
             checkDeviation = true;
-         else if(lastLow > 0 && (high[i] - lastLow) / lastLow > deviationThreshold)
+         else if(lastLow > EPSILON && (high[i] - lastLow) / lastLow > deviationThreshold)
             checkDeviation = true;
          
          if(checkDeviation)
@@ -171,7 +181,7 @@ int OnCalculate(const int rates_total,
          bool checkDeviation = false;
          if(lastHigh == 0)
             checkDeviation = true;
-         else if(lastHigh > 0 && (lastHigh - low[i]) / lastHigh > deviationThreshold)
+         else if(lastHigh > EPSILON && (lastHigh - low[i]) / lastHigh > deviationThreshold)
             checkDeviation = true;
          
          if(checkDeviation)
@@ -249,6 +259,11 @@ void DrawBox(int bar1, double price1, int bar2, double price2, const datetime &t
    int leftBar = MathMax(bar1, bar2);
    int rightBar = MathMin(bar1, bar2);
    
+   //--- Validate array bounds
+   int arraySize = ArraySize(time);
+   if(leftBar >= arraySize || rightBar >= arraySize || leftBar < 0 || rightBar < 0)
+      return;
+   
    datetime timeLeft = time[leftBar];
    datetime timeRight = time[rightBar];
    
@@ -273,7 +288,9 @@ void DrawBox(int bar1, double price1, int bar2, double price2, const datetime &t
       int g = (int)((InpBoxColor >> 8) & 0xFF);
       int b = (int)((InpBoxColor >> 16) & 0xFF);
       //--- Calculate alpha from transparency (0=opaque, 255=transparent)
-      int alpha = (int)((100 - InpBoxTransparency) * 255 / 100);
+      //--- Clamp transparency to valid range
+      int transparency = (InpBoxTransparency < 0) ? 0 : ((InpBoxTransparency > 100) ? 100 : InpBoxTransparency);
+      int alpha = (int)((100 - transparency) * 255 / 100);
       //--- Combine into ARGB color
       long colorWithAlpha = (alpha << 24) | (b << 16) | (g << 8) | r;
       ObjectSetInteger(0, objName, OBJPROP_BGCOLOR, colorWithAlpha);
