@@ -1,0 +1,333 @@
+//@version=5
+indicator("ZigZag with KCQT and HTQT Zones", overlay=true, max_boxes_count=500, max_lines_count=500)
+
+// ============================================================================
+// INPUT PARAMETERS
+// ============================================================================
+
+// ZigZag Settings
+zigzag_length = input.int(13, "ZigZag Length", minval=1, group="ZigZag Settings", tooltip="Number of bars to look left and right for pivot detection")
+
+// KCQT and HTQT Settings
+show_KCQT_HTQT = input.bool(false, "Show KCQT/HTQT Zones", group="Zone Settings")
+kcqt_threshold = input.float(3.0, "KCQT Threshold (%)", minval=0.1, step=0.1, group="Zone Settings", tooltip="Minimum swing size for KCQT zones")
+htqt_threshold = input.float(2.0, "HTQT Threshold (%)", minval=0.1, step=0.1, group="Zone Settings", tooltip="Minimum swing size for HTQT zones")
+
+// Visual Settings
+kcqt_color_bullish = input.color(color.new(color.green, 85), "KCQT Bullish Color", group="Visual Settings")
+kcqt_color_bearish = input.color(color.new(color.red, 85), "KCQT Bearish Color", group="Visual Settings")
+htqt_color_bullish = input.color(color.new(color.blue, 85), "HTQT Bullish Color", group="Visual Settings")
+htqt_color_bearish = input.color(color.new(color.orange, 85), "HTQT Bearish Color", group="Visual Settings")
+show_zigzag = input.bool(true, "Show ZigZag Lines", group="Visual Settings")
+zigzag_color = input.color(color.gray, "ZigZag Line Color", group="Visual Settings")
+
+// ============================================================================
+// ZIGZAG CALCULATION
+// ============================================================================
+
+// Calculate pivot highs and lows
+pivotHigh = ta.pivothigh(high, zigzag_length, zigzag_length)
+pivotLow = ta.pivotlow(low, zigzag_length, zigzag_length)
+
+// Variables to track swings
+var float lastPivotHigh = na
+var int lastPivotHighBar = na
+var float lastPivotLow = na
+var int lastPivotLowBar = na
+var string lastPivotType = na  // "high" or "low"
+
+// Arrays to store swing history
+var array<float> swingHighPrices = array.new<float>()
+var array<int> swingHighBars = array.new<int>()
+var array<float> swingLowPrices = array.new<float>()
+var array<int> swingLowBars = array.new<int>()
+
+// Maximum history to keep
+MAX_SWING_HISTORY = 50
+
+// Update swing points
+if not na(pivotHigh)
+    if na(lastPivotType) or lastPivotType == "low"
+        // New high swing
+        lastPivotHigh := pivotHigh
+        lastPivotHighBar := bar_index - zigzag_length
+        lastPivotType := "high"
+        
+        // Add to history
+        array.push(swingHighPrices, pivotHigh)
+        array.push(swingHighBars, bar_index - zigzag_length)
+        
+        // Limit array size
+        if array.size(swingHighPrices) > MAX_SWING_HISTORY
+            array.shift(swingHighPrices)
+            array.shift(swingHighBars)
+    else if pivotHigh > lastPivotHigh
+        // Update current high swing
+        lastPivotHigh := pivotHigh
+        lastPivotHighBar := bar_index - zigzag_length
+        
+        // Update last entry in history
+        if array.size(swingHighPrices) > 0
+            array.set(swingHighPrices, array.size(swingHighPrices) - 1, pivotHigh)
+            array.set(swingHighBars, array.size(swingHighBars) - 1, bar_index - zigzag_length)
+
+if not na(pivotLow)
+    if na(lastPivotType) or lastPivotType == "high"
+        // New low swing
+        lastPivotLow := pivotLow
+        lastPivotLowBar := bar_index - zigzag_length
+        lastPivotType := "low"
+        
+        // Add to history
+        array.push(swingLowPrices, pivotLow)
+        array.push(swingLowBars, bar_index - zigzag_length)
+        
+        // Limit array size
+        if array.size(swingLowPrices) > MAX_SWING_HISTORY
+            array.shift(swingLowPrices)
+            array.shift(swingLowBars)
+    else if pivotLow < lastPivotLow
+        // Update current low swing
+        lastPivotLow := pivotLow
+        lastPivotLowBar := bar_index - zigzag_length
+        
+        // Update last entry in history
+        if array.size(swingLowPrices) > 0
+            array.set(swingLowPrices, array.size(swingLowPrices) - 1, pivotLow)
+            array.set(swingLowBars, array.size(swingLowBars) - 1, bar_index - zigzag_length)
+
+// ============================================================================
+// ZIGZAG LINE DRAWING
+// ============================================================================
+
+var line zigzagLine = na
+
+if show_zigzag
+    if not na(lastPivotHigh) and not na(lastPivotLow)
+        // Draw line between last high and low
+        if lastPivotType == "low" and array.size(swingHighPrices) > 0 and array.size(swingLowPrices) > 0
+            prevHighBar = array.get(swingHighBars, array.size(swingHighBars) - 1)
+            prevHighPrice = array.get(swingHighPrices, array.size(swingHighPrices) - 1)
+            currLowBar = array.get(swingLowBars, array.size(swingLowBars) - 1)
+            currLowPrice = array.get(swingLowPrices, array.size(swingLowPrices) - 1)
+            
+            if not na(zigzagLine)
+                line.delete(zigzagLine)
+            zigzagLine := line.new(prevHighBar, prevHighPrice, currLowBar, currLowPrice, color=zigzag_color, width=2)
+        
+        else if lastPivotType == "high" and array.size(swingLowPrices) > 0 and array.size(swingHighPrices) > 0
+            prevLowBar = array.get(swingLowBars, array.size(swingLowBars) - 1)
+            prevLowPrice = array.get(swingLowPrices, array.size(swingLowPrices) - 1)
+            currHighBar = array.get(swingHighBars, array.size(swingHighBars) - 1)
+            currHighPrice = array.get(swingHighPrices, array.size(swingHighPrices) - 1)
+            
+            if not na(zigzagLine)
+                line.delete(zigzagLine)
+            zigzagLine := line.new(prevLowBar, prevLowPrice, currHighBar, currHighPrice, color=zigzag_color, width=2)
+
+// ============================================================================
+// KCQT (KEY CRITICAL ZONES) CALCULATION
+// ============================================================================
+
+// KCQT zones are created from confirmed major swings (critical price levels)
+// These are swings that have been validated by subsequent price action
+
+var array<box> kcqtBoxes = array.new<box>()
+
+// Function to calculate percentage change
+calcPercentChange(price1, price2) =>
+    math.abs((price2 - price1) / price1) * 100
+
+// Function to check if boxes overlap
+boxesOverlap(top1, bottom1, top2, bottom2) =>
+    not (bottom1 > top2 or bottom2 > top1)
+
+// Create KCQT zones from confirmed swings
+if show_KCQT_HTQT
+    // Clean up old boxes (keep only recent ones)
+    while array.size(kcqtBoxes) > 20
+        oldBox = array.shift(kcqtBoxes)
+        box.delete(oldBox)
+    
+    // Create KCQT zone when we have a confirmed swing
+    // A swing is confirmed when price has moved to the opposite extreme
+    if array.size(swingHighPrices) >= 2 and array.size(swingLowPrices) >= 2
+        // Check for confirmed high (bullish KCQT - resistance zone)
+        if lastPivotType == "low"
+            // Get the previous high swing (now confirmed)
+            prevHighIdx = array.size(swingHighPrices) - 1
+            prevHighPrice = array.get(swingHighPrices, prevHighIdx)
+            prevHighBar = array.get(swingHighBars, prevHighIdx)
+            
+            // Get the current low
+            currLowPrice = array.get(swingLowPrices, array.size(swingLowPrices) - 1)
+            
+            // Check if swing meets threshold
+            swingSize = calcPercentChange(currLowPrice, prevHighPrice)
+            if swingSize >= kcqt_threshold
+                // Create KCQT zone around the high
+                zoneHeight = prevHighPrice * 0.005  // 0.5% zone height
+                zoneTop = prevHighPrice + zoneHeight
+                zoneBottom = prevHighPrice - zoneHeight
+                
+                // Check for overlap with existing boxes
+                hasOverlap = false
+                for i = 0 to array.size(kcqtBoxes) - 1
+                    existingBox = array.get(kcqtBoxes, i)
+                    if not na(existingBox)
+                        existingTop = box.get_top(existingBox)
+                        existingBottom = box.get_bottom(existingBox)
+                        if boxesOverlap(zoneTop, zoneBottom, existingTop, existingBottom)
+                            hasOverlap := true
+                            break
+                
+                // Create box if no overlap
+                if not hasOverlap
+                    kcqtBox = box.new(prevHighBar, zoneTop, bar_index, zoneBottom, 
+                                      border_color=kcqt_color_bearish, 
+                                      bgcolor=kcqt_color_bearish,
+                                      border_width=1,
+                                      extend=extend.right)
+                    array.push(kcqtBoxes, kcqtBox)
+        
+        // Check for confirmed low (bearish KCQT - support zone)
+        else if lastPivotType == "high"
+            // Get the previous low swing (now confirmed)
+            prevLowIdx = array.size(swingLowPrices) - 1
+            prevLowPrice = array.get(swingLowPrices, prevLowIdx)
+            prevLowBar = array.get(swingLowBars, prevLowIdx)
+            
+            // Get the current high
+            currHighPrice = array.get(swingHighPrices, array.size(swingHighPrices) - 1)
+            
+            // Check if swing meets threshold
+            swingSize = calcPercentChange(prevLowPrice, currHighPrice)
+            if swingSize >= kcqt_threshold
+                // Create KCQT zone around the low
+                zoneHeight = prevLowPrice * 0.005  // 0.5% zone height
+                zoneTop = prevLowPrice + zoneHeight
+                zoneBottom = prevLowPrice - zoneHeight
+                
+                // Check for overlap with existing boxes
+                hasOverlap = false
+                for i = 0 to array.size(kcqtBoxes) - 1
+                    existingBox = array.get(kcqtBoxes, i)
+                    if not na(existingBox)
+                        existingTop = box.get_top(existingBox)
+                        existingBottom = box.get_bottom(existingBox)
+                        if boxesOverlap(zoneTop, zoneBottom, existingTop, existingBottom)
+                            hasOverlap := true
+                            break
+                
+                // Create box if no overlap
+                if not hasOverlap
+                    kcqtBox = box.new(prevLowBar, zoneTop, bar_index, zoneBottom, 
+                                      border_color=kcqt_color_bullish, 
+                                      bgcolor=kcqt_color_bullish,
+                                      border_width=1,
+                                      extend=extend.right)
+                    array.push(kcqtBoxes, kcqtBox)
+
+// ============================================================================
+// HTQT (TREND ZONES) CALCULATION
+// ============================================================================
+
+// HTQT zones are created from intermediate trend swings
+// These represent areas where trends change direction
+
+var array<box> htqtBoxes = array.new<box>()
+
+// Create HTQT zones from intermediate swings
+if show_KCQT_HTQT
+    // Clean up old boxes (keep only recent ones)
+    while array.size(htqtBoxes) > 20
+        oldBox = array.shift(htqtBoxes)
+        box.delete(oldBox)
+    
+    // Create HTQT zones from smaller/intermediate swings
+    if array.size(swingHighPrices) >= 3 and array.size(swingLowPrices) >= 3
+        // Look for intermediate highs (potential resistance in uptrend)
+        for i = 1 to math.min(array.size(swingHighPrices) - 1, 5)
+            highIdx = array.size(swingHighPrices) - 1 - i
+            if highIdx >= 0
+                highPrice = array.get(swingHighPrices, highIdx)
+                highBar = array.get(swingHighBars, highIdx)
+                
+                // Get adjacent lows to calculate swing size
+                lowIdx = array.size(swingLowPrices) - 1 - i
+                if lowIdx >= 0 and lowIdx < array.size(swingLowPrices)
+                    lowPrice = array.get(swingLowPrices, lowIdx)
+                    swingSize = calcPercentChange(lowPrice, highPrice)
+                    
+                    if swingSize >= htqt_threshold and swingSize < kcqt_threshold
+                        // This is an intermediate swing, create HTQT zone
+                        zoneHeight = highPrice * 0.003  // 0.3% zone height (smaller than KCQT)
+                        zoneTop = highPrice + zoneHeight
+                        zoneBottom = highPrice - zoneHeight
+                        
+                        // Check for overlap
+                        hasOverlap = false
+                        for j = 0 to array.size(htqtBoxes) - 1
+                            existingBox = array.get(htqtBoxes, j)
+                            if not na(existingBox)
+                                existingTop = box.get_top(existingBox)
+                                existingBottom = box.get_bottom(existingBox)
+                                if boxesOverlap(zoneTop, zoneBottom, existingTop, existingBottom)
+                                    hasOverlap := true
+                                    break
+                        
+                        if not hasOverlap
+                            htqtBox = box.new(highBar, zoneTop, bar_index, zoneBottom,
+                                              border_color=htqt_color_bearish,
+                                              bgcolor=htqt_color_bearish,
+                                              border_width=1,
+                                              extend=extend.right)
+                            array.push(htqtBoxes, htqtBox)
+                            break  // Only create one per update
+        
+        // Look for intermediate lows (potential support in downtrend)
+        for i = 1 to math.min(array.size(swingLowPrices) - 1, 5)
+            lowIdx = array.size(swingLowPrices) - 1 - i
+            if lowIdx >= 0
+                lowPrice = array.get(swingLowPrices, lowIdx)
+                lowBar = array.get(swingLowBars, lowIdx)
+                
+                // Get adjacent highs to calculate swing size
+                highIdx = array.size(swingHighPrices) - 1 - i
+                if highIdx >= 0 and highIdx < array.size(swingHighPrices)
+                    highPrice = array.get(swingHighPrices, highIdx)
+                    swingSize = calcPercentChange(lowPrice, highPrice)
+                    
+                    if swingSize >= htqt_threshold and swingSize < kcqt_threshold
+                        // This is an intermediate swing, create HTQT zone
+                        zoneHeight = lowPrice * 0.003  // 0.3% zone height (smaller than KCQT)
+                        zoneTop = lowPrice + zoneHeight
+                        zoneBottom = lowPrice - zoneHeight
+                        
+                        // Check for overlap
+                        hasOverlap = false
+                        for j = 0 to array.size(htqtBoxes) - 1
+                            existingBox = array.get(htqtBoxes, j)
+                            if not na(existingBox)
+                                existingTop = box.get_top(existingBox)
+                                existingBottom = box.get_bottom(existingBox)
+                                if boxesOverlap(zoneTop, zoneBottom, existingTop, existingBottom)
+                                    hasOverlap := true
+                                    break
+                        
+                        if not hasOverlap
+                            htqtBox = box.new(lowBar, zoneTop, bar_index, zoneBottom,
+                                              border_color=htqt_color_bullish,
+                                              bgcolor=htqt_color_bullish,
+                                              border_width=1,
+                                              extend=extend.right)
+                            array.push(htqtBoxes, htqtBox)
+                            break  // Only create one per update
+
+// ============================================================================
+// PLOT PIVOT POINTS FOR DEBUGGING (OPTIONAL)
+// ============================================================================
+
+// Uncomment to see pivot points
+// plotshape(pivotHigh, "Pivot High", shape.triangledown, location.abovebar, color.red, size=size.tiny)
+// plotshape(pivotLow, "Pivot Low", shape.triangleup, location.belowbar, color.green, size=size.tiny)
