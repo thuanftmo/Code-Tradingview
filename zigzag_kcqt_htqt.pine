@@ -6,8 +6,7 @@ indicator("ZigZag with KCQT and HTQT Zones", overlay=true, max_boxes_count=500, 
 // ============================================================================
 
 // ZigZag Settings
-zigzag_length = input.int(13, "ZigZag Length", minval=1, group="ZigZag Settings")
-zigzag_depth = input.float(5.0, "ZigZag Depth (%)", minval=0.1, step=0.1, group="ZigZag Settings")
+zigzag_length = input.int(13, "ZigZag Length", minval=1, group="ZigZag Settings", tooltip="Number of bars to look left and right for pivot detection")
 
 // KCQT and HTQT Settings
 show_KCQT_HTQT = input.bool(false, "Show KCQT/HTQT Zones", group="Zone Settings")
@@ -249,75 +248,81 @@ if show_KCQT_HTQT
     if array.size(swingHighPrices) >= 3 and array.size(swingLowPrices) >= 3
         // Look for intermediate highs (potential resistance in uptrend)
         for i = 1 to math.min(array.size(swingHighPrices) - 1, 5)
-            highPrice = array.get(swingHighPrices, array.size(swingHighPrices) - 1 - i)
-            highBar = array.get(swingHighBars, array.size(swingHighBars) - 1 - i)
-            
-            // Get adjacent lows to calculate swing size
-            if i < array.size(swingLowPrices)
-                lowPrice = array.get(swingLowPrices, array.size(swingLowPrices) - 1 - i)
-                swingSize = calcPercentChange(lowPrice, highPrice)
+            highIdx = array.size(swingHighPrices) - 1 - i
+            if highIdx >= 0
+                highPrice = array.get(swingHighPrices, highIdx)
+                highBar = array.get(swingHighBars, highIdx)
                 
-                if swingSize >= htqt_threshold and swingSize < kcqt_threshold
-                    // This is an intermediate swing, create HTQT zone
-                    zoneHeight = highPrice * 0.003  // 0.3% zone height (smaller than KCQT)
-                    zoneTop = highPrice + zoneHeight
-                    zoneBottom = highPrice - zoneHeight
+                // Get adjacent lows to calculate swing size
+                lowIdx = array.size(swingLowPrices) - 1 - i
+                if lowIdx >= 0 and lowIdx < array.size(swingLowPrices)
+                    lowPrice = array.get(swingLowPrices, lowIdx)
+                    swingSize = calcPercentChange(lowPrice, highPrice)
                     
-                    // Check for overlap
-                    hasOverlap = false
-                    for j = 0 to array.size(htqtBoxes) - 1
-                        existingBox = array.get(htqtBoxes, j)
-                        if not na(existingBox)
-                            existingTop = box.get_top(existingBox)
-                            existingBottom = box.get_bottom(existingBox)
-                            if boxesOverlap(zoneTop, zoneBottom, existingTop, existingBottom)
-                                hasOverlap := true
-                                break
-                    
-                    if not hasOverlap
-                        htqtBox = box.new(highBar, zoneTop, bar_index, zoneBottom,
-                                          border_color=htqt_color_bearish,
-                                          bgcolor=htqt_color_bearish,
-                                          border_width=1,
-                                          extend=extend.right)
-                        array.push(htqtBoxes, htqtBox)
-                        break  // Only create one per update
+                    if swingSize >= htqt_threshold and swingSize < kcqt_threshold
+                        // This is an intermediate swing, create HTQT zone
+                        zoneHeight = highPrice * 0.003  // 0.3% zone height (smaller than KCQT)
+                        zoneTop = highPrice + zoneHeight
+                        zoneBottom = highPrice - zoneHeight
+                        
+                        // Check for overlap
+                        hasOverlap = false
+                        for j = 0 to array.size(htqtBoxes) - 1
+                            existingBox = array.get(htqtBoxes, j)
+                            if not na(existingBox)
+                                existingTop = box.get_top(existingBox)
+                                existingBottom = box.get_bottom(existingBox)
+                                if boxesOverlap(zoneTop, zoneBottom, existingTop, existingBottom)
+                                    hasOverlap := true
+                                    break
+                        
+                        if not hasOverlap
+                            htqtBox = box.new(highBar, zoneTop, bar_index, zoneBottom,
+                                              border_color=htqt_color_bearish,
+                                              bgcolor=htqt_color_bearish,
+                                              border_width=1,
+                                              extend=extend.right)
+                            array.push(htqtBoxes, htqtBox)
+                            break  // Only create one per update
         
         // Look for intermediate lows (potential support in downtrend)
         for i = 1 to math.min(array.size(swingLowPrices) - 1, 5)
-            lowPrice = array.get(swingLowPrices, array.size(swingLowPrices) - 1 - i)
-            lowBar = array.get(swingLowBars, array.size(swingLowBars) - 1 - i)
-            
-            // Get adjacent highs to calculate swing size
-            if i < array.size(swingHighPrices)
-                highPrice = array.get(swingHighPrices, array.size(swingHighPrices) - 1 - i)
-                swingSize = calcPercentChange(lowPrice, highPrice)
+            lowIdx = array.size(swingLowPrices) - 1 - i
+            if lowIdx >= 0
+                lowPrice = array.get(swingLowPrices, lowIdx)
+                lowBar = array.get(swingLowBars, lowIdx)
                 
-                if swingSize >= htqt_threshold and swingSize < kcqt_threshold
-                    // This is an intermediate swing, create HTQT zone
-                    zoneHeight = lowPrice * 0.003  // 0.3% zone height (smaller than KCQT)
-                    zoneTop = lowPrice + zoneHeight
-                    zoneBottom = lowPrice - zoneHeight
+                // Get adjacent highs to calculate swing size
+                highIdx = array.size(swingHighPrices) - 1 - i
+                if highIdx >= 0 and highIdx < array.size(swingHighPrices)
+                    highPrice = array.get(swingHighPrices, highIdx)
+                    swingSize = calcPercentChange(lowPrice, highPrice)
                     
-                    // Check for overlap
-                    hasOverlap = false
-                    for j = 0 to array.size(htqtBoxes) - 1
-                        existingBox = array.get(htqtBoxes, j)
-                        if not na(existingBox)
-                            existingTop = box.get_top(existingBox)
-                            existingBottom = box.get_bottom(existingBox)
-                            if boxesOverlap(zoneTop, zoneBottom, existingTop, existingBottom)
-                                hasOverlap := true
-                                break
-                    
-                    if not hasOverlap
-                        htqtBox = box.new(lowBar, zoneTop, bar_index, zoneBottom,
-                                          border_color=htqt_color_bullish,
-                                          bgcolor=htqt_color_bullish,
-                                          border_width=1,
-                                          extend=extend.right)
-                        array.push(htqtBoxes, htqtBox)
-                        break  // Only create one per update
+                    if swingSize >= htqt_threshold and swingSize < kcqt_threshold
+                        // This is an intermediate swing, create HTQT zone
+                        zoneHeight = lowPrice * 0.003  // 0.3% zone height (smaller than KCQT)
+                        zoneTop = lowPrice + zoneHeight
+                        zoneBottom = lowPrice - zoneHeight
+                        
+                        // Check for overlap
+                        hasOverlap = false
+                        for j = 0 to array.size(htqtBoxes) - 1
+                            existingBox = array.get(htqtBoxes, j)
+                            if not na(existingBox)
+                                existingTop = box.get_top(existingBox)
+                                existingBottom = box.get_bottom(existingBox)
+                                if boxesOverlap(zoneTop, zoneBottom, existingTop, existingBottom)
+                                    hasOverlap := true
+                                    break
+                        
+                        if not hasOverlap
+                            htqtBox = box.new(lowBar, zoneTop, bar_index, zoneBottom,
+                                              border_color=htqt_color_bullish,
+                                              bgcolor=htqt_color_bullish,
+                                              border_width=1,
+                                              extend=extend.right)
+                            array.push(htqtBoxes, htqtBox)
+                            break  // Only create one per update
 
 // ============================================================================
 // PLOT PIVOT POINTS FOR DEBUGGING (OPTIONAL)
