@@ -121,6 +121,10 @@ int OnCalculate(const int rates_total,
       ZigZagHighBuffer[i] = 0.0;
       ZigZagLowBuffer[i] = 0.0;
       
+      //--- Skip if not enough data
+      if(i + InpDepth > rates_total - 1)
+         continue;
+      
       //--- Calculate highest and lowest values
       double highValue = high[ArrayMaximum(high, i, InpDepth)];
       double lowValue = low[ArrayMinimum(low, i, InpDepth)];
@@ -208,6 +212,10 @@ void DrawZigZagLine(int bar1, double price1, int bar2, double price2,
   {
    int startBar = MathMax(bar1, bar2);
    int endBar = MathMin(bar1, bar2);
+   
+   //--- Avoid division by zero
+   if(startBar == endBar)
+      return;
    
    for(int i = startBar; i >= endBar; i--)
      {

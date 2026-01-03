@@ -35,17 +35,13 @@ var array<int> zigzagLowBars = array.new<int>()
 highValue = ta.highest(high, zigzagDepth)
 lowValue = ta.lowest(low, zigzagDepth)
 
-// Initialize direction
-if na(direction)
-    direction := 0
-
 // Calculate deviation threshold
 deviationThreshold = zigzagDeviation / 100
 
 // ZigZag logic
 if direction <= 0 and high >= highValue
-    if na(lastLow) or (high - lastLow) / lastLow > deviationThreshold
-        if not na(lastLow) and bar_index - lastLowBar >= zigzagBackstep
+    if na(lastLow) or (not na(lastLow) and (high - lastLow) / lastLow > deviationThreshold)
+        if not na(lastLow) and not na(lastLowBar) and bar_index - lastLowBar >= zigzagBackstep
             // New high pivot found
             if not na(lastHigh) and not na(lastLow)
                 // Draw line from last high to last low
@@ -71,8 +67,8 @@ if direction <= 0 and high >= highValue
             array.push(zigzagHighBars, bar_index)
 
 if direction >= 0 and low <= lowValue
-    if na(lastHigh) or (lastHigh - low) / lastHigh > deviationThreshold
-        if not na(lastHigh) and bar_index - lastHighBar >= zigzagBackstep
+    if na(lastHigh) or (not na(lastHigh) and (lastHigh - low) / lastHigh > deviationThreshold)
+        if not na(lastHigh) and not na(lastHighBar) and bar_index - lastHighBar >= zigzagBackstep
             // New low pivot found
             if not na(lastHigh) and not na(lastLow)
                 // Draw line from last low to last high
