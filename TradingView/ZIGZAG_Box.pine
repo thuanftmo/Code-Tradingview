@@ -1,0 +1,95 @@
+//@version=5
+indicator("ZIGZAG + Box", overlay=true, max_boxes_count=500, max_lines_count=500)
+
+// Input parameters
+zigzagDepth = input.int(12, "ZigZag Depth", minval=1, group="ZigZag Settings")
+zigzagDeviation = input.int(5, "ZigZag Deviation (%)", minval=1, group="ZigZag Settings")
+zigzagBackstep = input.int(3, "ZigZag Backstep", minval=1, group="ZigZag Settings")
+
+// Box Settings
+showBoxes = input.bool(true, "Show Boxes", group="Box Settings")
+boxColor = input.color(color.new(color.blue, 80), "Box Color", group="Box Settings")
+boxBorderColor = input.color(color.blue, "Box Border Color", group="Box Settings")
+boxBorderWidth = input.int(1, "Box Border Width", minval=1, maxval=5, group="Box Settings")
+
+// Line Settings
+zigzagLineColor = input.color(color.yellow, "ZigZag Line Color", group="Line Settings")
+zigzagLineWidth = input.int(2, "ZigZag Line Width", minval=1, maxval=5, group="Line Settings")
+
+// ZigZag calculation
+var float lastHigh = na
+var float lastLow = na
+var int lastHighBar = na
+var int lastLowBar = na
+var int direction = 0
+var line lastLine = na
+var box lastBox = na
+
+// Calculate highest and lowest values
+highValue = ta.highest(high, zigzagDepth)
+lowValue = ta.lowest(low, zigzagDepth)
+
+// Calculate deviation threshold
+deviationThreshold = zigzagDeviation / 100
+
+// ZigZag logic
+if direction <= 0 and high >= highValue
+    if na(lastLow) or (not na(lastLow) and lastLow > 0 and (high - lastLow) / lastLow > deviationThreshold)
+        if not na(lastLow) and not na(lastLowBar) and bar_index - lastLowBar >= zigzagBackstep
+            // New high pivot found
+            if not na(lastHigh) and not na(lastLow)
+                // Draw line from last high to last low
+                lastLine := line.new(lastHighBar, lastHigh, lastLowBar, lastLow, 
+                     color=zigzagLineColor, width=zigzagLineWidth)
+                
+                // Draw box if enabled
+                if showBoxes
+                    boxLeft = lastHighBar
+                    boxRight = lastLowBar
+                    boxTop = lastHigh
+                    boxBottom = lastLow
+                    lastBox := box.new(boxLeft, boxTop, boxRight, boxBottom, 
+                         border_color=boxBorderColor, border_width=boxBorderWidth,
+                         bgcolor=boxColor, extend=extend.none)
+            
+            lastHigh := high
+            lastHighBar := bar_index
+            direction := 1
+
+if direction >= 0 and low <= lowValue
+    if na(lastHigh) or (not na(lastHigh) and lastHigh > 0 and (lastHigh - low) / lastHigh > deviationThreshold)
+        if not na(lastHigh) and not na(lastHighBar) and bar_index - lastHighBar >= zigzagBackstep
+            // New low pivot found
+            if not na(lastHigh) and not na(lastLow)
+                // Draw line from last low to last high
+                lastLine := line.new(lastLowBar, lastLow, lastHighBar, lastHigh, 
+                     color=zigzagLineColor, width=zigzagLineWidth)
+                
+                // Draw box if enabled
+                if showBoxes
+                    boxLeft = lastLowBar
+                    boxRight = lastHighBar
+                    boxTop = lastHigh
+                    boxBottom = lastLow
+                    lastBox := box.new(boxLeft, boxTop, boxRight, boxBottom, 
+                         border_color=boxBorderColor, border_width=boxBorderWidth,
+                         bgcolor=boxColor, extend=extend.none)
+            
+            lastLow := low
+            lastLowBar := bar_index
+            direction := -1
+
+// Update last high/low if current is more extreme
+if direction > 0 and high > lastHigh
+    lastHigh := high
+    lastHighBar := bar_index
+
+if direction < 0 and low < lastLow
+    lastLow := low
+    lastLowBar := bar_index
+
+// Plot zigzag points
+plotshape(direction == 1 and direction[1] != 1, "High Pivot", shape.triangledown, 
+     location.abovebar, color.red, size=size.small)
+plotshape(direction == -1 and direction[1] != -1, "Low Pivot", shape.triangleup, 
+     location.belowbar, color.green, size=size.small)
